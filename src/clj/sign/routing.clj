@@ -43,7 +43,8 @@
               (content-type "image/png"))
           {:status 404
            :body "No image"}))
-      (POST* "/sign" [image]
+      (POST* "/sign" [image paths]
+        (println paths)
         (reset! sign (->image image))
         (ok {}))
       (POST* "/error" {body :body-params addr :remote-addr {:strs [user-agent]} :headers}
