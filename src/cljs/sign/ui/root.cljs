@@ -10,8 +10,9 @@
 (defcomponent render-root [app owner]
   (render [_]
     (html
-      (om/build navbar app)
-      (om/build sign app))))
+      [:div
+       (om/build navbar app)
+       (om/build sign app)])))
 
 (defn start []
   (om/root render-root app-state {:target (js/document.getElementById "app")}))

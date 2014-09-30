@@ -6,7 +6,7 @@ var gprint = require('gulp-print');
 // Common
 var less = require('gulp-less');
 function compileLess() {
-  return gulp.src('src/web/foozzaa.less')
+  return gulp.src('src/web/sign.less')
     .pipe(plumber())
     .pipe(less({
       paths: ['src/web'],

@@ -25,67 +25,19 @@ body {
    }
 }
 
-.hidden {
-  display: none !important;
+.w120 {
+  width: 120px;
 }
 
-.sliding {
-  overflow:      hidden;
-  width:         200px;
+.sign {
+  display:        block;
+  margin-bottom:  15px;
+  width:          100%;
+  height:         500px;
+  border:         1px solid rgba(0, 0, 255, 0.75);
+  .border-radius(5px);
 }
 
-.sliding-content {
-  margin-left: 0px;
-  width:       2000px;
-  .transition(margin-left 0.4s ease);
-  &.open {
-    margin-left: -200px;
-  }
-}
-
-.sliding-element {
-  width: 100px;
-  float: left;
-  &:nth-child(1) {
-    width: 200px;
-  }
-}
-
-.dialog-overlay {
-  z-index:     2000;
-  position:    fixed; 
-  top:         0px;
-  right:       0px;
-  bottom:      0px;  
-  left:        0px;
-  overflow:    hidden;
-  background:  rgba(192, 192, 192, 0.8);
-  opacity:     0;
-  .transition(opacity .3s);
-  &.opened {
-    opacity: 1;  
-  }
-  &.dark {
-    background:  rgba(32, 32, 32, 0.8);
-  }
-}
-
-.dialog-modal {
-  position:    relative;
-  background:  rgba(0, 0, 0, 0.0);
-  width:       600px;
-  margin:      30px auto;
-  .transform(translate3d(0,-25%,0));
-  .transition(transform .3s);  
-  &.opened {
-    .transform(translate3d(0,0,0))
-  }
-}
-
-.dialog-message {
-  width:     300px;
-  margin:    30px auto;
-  h1, h2, h3, h4, p {
-    color:     white;
-  }
+.capturing {
+  .box-shadow(0 0 10px rgba(0, 0, 255, 0.75));
 }

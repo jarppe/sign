@@ -1,7 +1,6 @@
 (ns sign.index-page
   (:require [hiccup.core :refer [html]]
             [hiccup.page :refer [html5 include-css include-js]]
-            [garden.core :refer [css]]
             [sign.env :as env]))
 
 (def index-page
