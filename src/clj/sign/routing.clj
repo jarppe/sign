@@ -6,19 +6,8 @@
             [compojure.api.core :refer [defroutes* middlewares GET* POST*]]
             [compojure.api.middleware :refer [api-middleware]]
             [sign.env :as env]
-            [sign.index-page :refer [index-page]])
-  (:import [java.io InputStream ByteArrayInputStream ByteArrayOutputStream]
-           [org.apache.commons.codec.binary Base64]))
-
-(defn ->is ^InputStream [^bytes data]
-  (ByteArrayInputStream. data))
-
-(def prefix "data:image/png;base64,")
-
-(defn ->image ^bytes [^String image]
-  (if-not (.startsWith image prefix)
-    (bad-request! {:message "Bad image data"}))
-  (Base64/decodeBase64 (.substring image (.length prefix))))
+            [sign.index-page :refer [index-page]]
+            [sign.image :refer [->image]]))
 
 (def sign (atom nil))
 
@@ -36,16 +25,15 @@
   (middlewares [(api-middleware)]
     (context "/api" []
       (GET* "/sign" []
-        (if-let [image @sign]
-          (-> image
-              (->is)
-              (ok)
-              (content-type "image/png"))
-          {:status 404
-           :body "No image"}))
-      (POST* "/sign" [image paths]
-        (println paths)
-        (reset! sign (->image image))
+        :query-params [{width  :- Long 600}
+                       {height :- Long 400}]
+        (-> @sign
+            (->image width height)
+            (ok)
+            (content-type "image/png")))
+      (POST* "/sign" [paths]
+        (println "paths:" paths)
+        (reset! sign paths)
         (ok {}))
       (POST* "/error" {body :body-params addr :remote-addr {:strs [user-agent]} :headers}
         (println "client error:" body addr user-agent)
