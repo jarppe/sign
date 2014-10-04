@@ -32,7 +32,6 @@
             (ok)
             (content-type "image/png")))
       (POST* "/sign" [paths]
-        (println "paths:" paths)
         (reset! sign paths)
         (ok {}))
       (POST* "/error" {body :body-params addr :remote-addr {:strs [user-agent]} :headers}

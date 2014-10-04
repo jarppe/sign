@@ -40,14 +40,14 @@
     (when path
       (let [nx (- nx rx)
             ny (- ny ry)]
-        (doto ctx
-          (.beginPath)
-          (.moveTo x y)
-          (.lineTo nx ny)
-          (.stroke))
-        (swap! context assoc
-               :x nx
-               :y ny)
+        #_(doto ctx
+           (.beginPath)
+           (.moveTo x y)
+           (.lineTo nx ny)
+           (.stroke))
+        #_(swap! context assoc
+                :x nx
+                :y ny)
         (doto path
           (.push nx)
           (.push ny))))))
@@ -55,7 +55,7 @@
 (defn- end-path [context]
   (let [{:keys [path add! ctx x y]} @context]
     (add! (->> path js->clj (partition 2)))
-    (if (-> path .-length (= 1))
+    (if (-> path .-length (= 2))
       (.fillRect ctx (- x 2) (- y 2) 6 6))
     (swap! context assoc
            :path      nil
