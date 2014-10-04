@@ -53,8 +53,10 @@
                  :path (conj path [nx ny])))))))
 
 (defn- end-path [context]
-  (let [{:keys [path add!]} @context]
+  (let [{:keys [path add! ctx x y]} @context]
     (add! path)
+    (if (-> path count (= 1))
+      (.fillRect ctx (- x 2) (- y 2) 6 6))
     (swap! context assoc
            :path      nil
            :touch-id  nil)))
@@ -130,6 +132,7 @@
       (.lineTo (- width 60) (- height 60))
       (.stroke)
       (aset "strokeStyle" "rgb(0,0,0)")
+      (aset "fillStyle" "rgb(0,0,0)")
       (aset "lineWidth" 5.0))
     (doto canvas
       (aset "onmousedown"   (on-mousedown context))

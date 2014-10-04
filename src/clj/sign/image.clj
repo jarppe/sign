@@ -38,15 +38,19 @@
           delta-y  (- (/ (- height new-h) 2) miny)
           trans-x  (fn [x] (-> x (+ delta-x) (* scale)))
           trans-y  (fn [y] (-> y (+ delta-y) (* scale)))]
-      [trans-x trans-y])))
+      [trans-x trans-y scale])))
 
-(defn paint-paths [^Graphics2D g paths [sx sy]]
-  (let [path (Path2D$Float.)]
-    (doseq [[[x y] & more] paths]
-      (.moveTo path ^double (sx x) ^double (sy y))
-      (doseq [[x y] more]
-        (.lineTo path ^double (sx x) ^double (sy y))))
-    (.draw g path)))
+(defn paint-paths [^Graphics2D g paths [sx sy s]]
+  (doseq [p paths]
+    (if (-> p count (= 1))
+      (let [[x y] (first p)]
+        (.fillOval g (sx x) (sy y) (* s 2) (* s 2)))
+      (let [path (Path2D$Float.)
+            [[x y] & more] p]
+        (.moveTo path ^double (sx x) ^double (sy y))
+        (doseq [[x y] more]
+          (.lineTo path ^double (sx x) ^double (sy y)))
+        (.draw g path)))))
 
 (defn- paint [^BufferedImage image paths ^long width ^long height]
   (doto (.createGraphics image)
