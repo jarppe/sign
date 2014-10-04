@@ -18,7 +18,7 @@
 
 (defcomponent sign [app owner]
   (init-state [_]
-    {:sign?    false
+    {:sign?    true
      :<toggle  (a/chan)})
   (will-mount [_]
     (let [<toggle (om/get-state owner :<toggle)]
