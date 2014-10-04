@@ -30,32 +30,32 @@
     (swap! context assoc
            :x         x
            :y         y
-           :path      [[x y]]
+           :path      (doto (js/Array.)
+                        (.push x)
+                        (.push y))
            :touch-id  touch-id)))
 
 (defn- append-path [context nx ny]
   (let [{:keys [ctx rx ry x y path]} @context]
-    (when (seq path)
+    (when path
       (let [nx (- nx rx)
-            ny (- ny ry)
-            dx (- x nx)
-            dy (- y ny)
-            d  (Math/sqrt (+ (* dx dx) (* dy dy)))]
-        (when (> d 2.0)
-          (doto ctx
-            (.beginPath)
-            (.moveTo x y)
-            (.lineTo nx ny)
-            (.stroke))
-          (swap! context assoc
-                 :x nx
-                 :y ny
-                 :path (conj path [nx ny])))))))
+            ny (- ny ry)]
+        (doto ctx
+          (.beginPath)
+          (.moveTo x y)
+          (.lineTo nx ny)
+          (.stroke))
+        (swap! context assoc
+               :x nx
+               :y ny)
+        (doto path
+          (.push nx)
+          (.push ny))))))
 
 (defn- end-path [context]
   (let [{:keys [path add! ctx x y]} @context]
-    (add! path)
-    (if (-> path count (= 1))
+    (add! (->> path js->clj (partition 2)))
+    (if (-> path .-length (= 1))
       (.fillRect ctx (- x 2) (- y 2) 6 6))
     (swap! context assoc
            :path      nil
