@@ -6,7 +6,7 @@
             [sablono.core :as html :refer-macros [html]]
             [ajax.core :refer [GET POST]])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]
-                   [sign.ui.util :refer [while-let]]))
+                   [sign.ui.util :refer [while-let forloop]]))
 
 ;;
 ;; Common utils:
@@ -17,108 +17,108 @@
   (.stopPropagation e)
   e)
 
-(defn find-touch [touch-id touches]
-  (areduce touches i acc nil
-           (or acc (let [touch (aget touches i)]
-                     (if (= touch-id (.-identifier touch))
-                       touch)))))
-
-(defn- start-path [context x y touch-id]
-  (let [{:keys [rx ry]} @context
-        x (- x rx)
-        y (- y ry)]
-    (swap! context assoc
-           :x         x
-           :y         y
-           :path      (doto (js/Array.)
-                        (.push x)
-                        (.push y))
-           :touch-id  touch-id)))
-
-(defn- append-path [context nx ny]
-  (let [{:keys [ctx rx ry x y path]} @context]
-    (when path
-      (let [nx (- nx rx)
-            ny (- ny ry)]
-        #_(doto ctx
-           (.beginPath)
-           (.moveTo x y)
-           (.lineTo nx ny)
-           (.stroke))
-        #_(swap! context assoc
-                :x nx
-                :y ny)
-        (doto path
-          (.push nx)
-          (.push ny))))))
-
-(defn- end-path [context]
-  (let [{:keys [path add! ctx x y]} @context]
-    (add! (->> path js->clj (partition 2)))
-    (if (-> path .-length (= 2))
-      (.fillRect ctx (- x 2) (- y 2) 6 6))
-    (swap! context assoc
-           :path      nil
-           :touch-id  nil)))
-
 ;;
 ;; Mouse events:
 ;;
 
-(defn- on-mousedown [context]
+(defn- on-mousedown [<events]
   (fn [e]
     (pd e)
-    (start-path context (.-clientX e) (.-clientY e) nil)))
+    (put! <events [:start (.-clientX e) (.-clientY e)])))
 
-(defn- on-mousemove [context]
+(defn- on-mousemove [<events]
   (fn [e]
     (pd e)
-    (append-path context (.-clientX e) (.-clientY e))))
+    (put! <events [:move (.-clientX e) (.-clientY e)])))
 
-(defn- on-mouseup [context] 
+(defn- on-mouseup [<events] 
   (fn [e]
     (pd e)
-    (end-path context)))
+    (put! <events [:end])))
 
 ;;
 ;; Touch events:
 ;;
 
-(defn- on-touchstart [context]
+(defn- on-touchstart [<events]
   (fn [e]
     (pd e)
-    (if (-> @context :touch-id not)
-      (let [touch     (aget (.-touches e) 0)
-            touch-id  (.-identifier touch)]
-        (start-path context (.-clientX touch) (.-clientY touch) touch-id)))))
+    (let [touch (-> e .-touches (aget 0))]
+      (put! <events [:start (.-clientX touch) (.-clientY touch)]))))
 
-(defn- on-touchmove [context]
+(defn- on-touchmove [<events]
   (fn [e]
     (pd e)
-    (if-let [touch (-> @context :touch-id (find-touch (.-touches e)))]
-      (append-path context (.-clientX touch) (.-clientY touch)))))
+    (let [touch (-> e .-touches (aget 0))]
+      (put! <events [:move (.-clientX touch) (.-clientY touch)]))))
 
-(defn- on-touchend [context]
+(defn- on-touchend [<events]
   (fn [e]
     (pd e)
-    (if-not (-> @context :touch-id (find-touch (.-touches e)))
-      (end-path context))))
+    (put! <events [:end])))
 
 ;;
-;; Initialize signature context:
+;; Process events into a paths:
 ;;
 
-(defn- init-sign-context! [canvas add!]
-  (let [rect     (.getBoundingClientRect canvas)
-        rx       (.-left rect)
-        ry       (.-top rect)
-        width    (.-offsetWidth canvas)
-        height   (.-offsetHeight canvas)
-        ctx      (.getContext canvas "2d")
-        context  (atom {:add!   add!
-                        :ctx    ctx
-                        :rx     rx
-                        :ry     ry})]
+(defn- new-current [paths x y]
+  (let [current (array [x y])]
+    (.push paths current)
+    current))
+
+(defn- append [current x y]
+  (if current
+    (.push current [x y]))
+  current)
+
+(defn- events->paths [<events paths [rx ry]]
+  (go-loop [current nil]
+    (let [[event x y] (<! <events)]
+      (condp = event
+        :start  (recur (new-current paths (- x rx) (- y ry)))
+        :move   (recur (append current (- x rx) (- y ry)))
+        :end    (recur nil)
+        nil))))
+
+;;
+;; Scheduler:
+;;
+
+(def schedule (or (.-requestAnimationFrame js/window)
+                  (.-mozRequestAnimationFrame js/window)
+                  (.-webkitRequestAnimationFrame js/window)
+                  (.-msRequestAnimationFrame js/window)
+                  (fn [f] (.setTimeout js/window f 16))))
+
+;;
+;; Render paths:
+;;
+
+(defn- render-path [ctx path]
+  (let [length (alength path)]
+    (when (pos? length)
+      (.beginPath ctx)
+      (let [[x y] (aget path 0)]
+        (.moveTo ctx x y))
+      (doseq [i (range 1 length)]
+        (let [[x y] (aget path i)]
+          (.lineTo ctx x y)))
+      (.stroke ctx))))
+
+(defn- render [ctx paths run?]
+  (schedule (fn renderer []
+              (doseq [i (range 0 (alength paths))]
+                (render-path ctx (aget paths i)))
+              (if @run?
+                (schedule renderer)))))
+
+;;
+;; Init canvas:
+;;
+
+(defn- init-canvas [canvas ctx <events]
+  (let [width    (.-offsetWidth canvas)
+        height   (.-offsetHeight canvas)]
     (doto canvas
       (aset "width" width)
       (aset "height" height))
@@ -135,29 +135,59 @@
       (aset "fillStyle" "rgb(0,0,0)")
       (aset "lineWidth" 5.0))
     (doto canvas
-      (aset "onmousedown"   (on-mousedown context))
-      (aset "onmousemove"   (on-mousemove context))
-      (aset "onmouseup"     (on-mouseup context))
-      (aset "ontouchstart"  (on-touchstart context))
-      (aset "ontouchmove"   (on-touchmove context))
-      (aset "ontouchend"    (on-touchend context))
-      (aset "ontouchcancel" (on-touchend context)))))
+      (aset "onmousedown"   (on-mousedown  <events))
+      (aset "onmousemove"   (on-mousemove  <events))
+      (aset "onmouseup"     (on-mouseup    <events))
+      (aset "ontouchstart"  (on-touchstart <events))
+      (aset "ontouchmove"   (on-touchmove  <events))
+      (aset "ontouchend"    (on-touchend   <events))
+      (aset "ontouchcancel" (on-touchend   <events)))))
+
+;;
+;; :
+;;
+
+(defn- canvas-offsets [canvas]
+  (let [rect (.getBoundingClientRect canvas)
+        rx   (.-left rect)
+        ry   (.-top rect)]
+    [rx ry]))
+
+(defn- init-sign-context [canvas paths]
+  (let [<events  (a/chan (a/sliding-buffer 32))
+        <close   (a/chan)
+        run?     (atom true)
+        ctx      (.getContext canvas "2d")]
+    (init-canvas canvas ctx <events)
+    (events->paths <events paths (canvas-offsets canvas))
+    (render ctx paths run?)
+    (go
+      (<! <close)
+      (reset! run? false)
+      (a/close! <events))
+    <close))
+
+;;
+;; Capture signature components:
+;;
 
 (defcomponent capture [app owner {:keys [<toggle]}]
   (init-state [_]
-    {:paths []})
+    {:paths (array)})
   (did-mount [_]
-    (init-sign-context!
-      (om/get-node owner "sign-canvas")
-      (fn [p] (om/update-state! owner :paths #(conj % p)))))
+     (let [<close (init-sign-context
+                    (om/get-node owner "sign-canvas")
+                    (om/get-state owner :paths))]
+       (om/set-state! owner :<close <close)))
+  (will-unmount [_]
+     (a/close! (om/get-state owner :<close)))
   (render-state [_ {:keys [paths]}]
     (html
       [:div
        [:canvas.sign.capturing {:ref "sign-canvas"}]
        [:button.btn.btn-success.w120
-        {:disabled (empty? paths)
-         :on-click (fn [_]
+        {:on-click (fn [_]
                      (POST "/api/sign"
-                       {:params {:paths paths}
+                       {:params {:paths (js->clj paths)}
                         :handler (fn [_] (put! <toggle true))}))}
         "Save"]])))

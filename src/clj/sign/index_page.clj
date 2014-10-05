@@ -17,5 +17,5 @@
          (concat (include-js "out/goog/base.js" "react.js" "sign.js")
                  [[:script {:type "text/javascript"} "goog.require('sign.ui.main');"]]))]
       [:body
-       [:div#app
+       [:div#app.container
         [:h1 "Loading, please wait..."]]])))

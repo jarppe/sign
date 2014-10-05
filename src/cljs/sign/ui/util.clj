@@ -5,3 +5,9 @@
      (when ~s
        ~@body
        (recur ~f))))
+
+(defmacro forloop [[init test step] & body]
+  `(loop [~@init]
+     (when ~test
+       ~@body
+       (recur ~step))))
