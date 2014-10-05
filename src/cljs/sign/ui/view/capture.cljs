@@ -6,7 +6,7 @@
             [sablono.core :as html :refer-macros [html]]
             [ajax.core :refer [GET POST]])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]
-                   [sign.ui.util :refer [while-let forloop]]))
+                   [sign.ui.util :refer [with-each]]))
 
 ;;
 ;; Common utils:
@@ -95,20 +95,22 @@
 ;;
 
 (defn- render-path [ctx path]
-  (let [length (alength path)]
-    (when (pos? length)
-      (.beginPath ctx)
-      (let [[x y] (aget path 0)]
-        (.moveTo ctx x y))
-      (doseq [i (range 1 length)]
-        (let [[x y] (aget path i)]
-          (.lineTo ctx x y)))
-      (.stroke ctx))))
+  (when (-> path alength pos?)
+    (.beginPath ctx)
+    (let [[x y] (aget path 0)]
+      (.moveTo ctx x y))
+    (with-each path [x y]
+      (.lineTo ctx x y))
+    (.stroke ctx)))
 
 (defn- render [ctx paths run?]
   (schedule (fn renderer []
-              (doseq [i (range 0 (alength paths))]
-                (render-path ctx (aget paths i)))
+              (let [max-i (-> paths alength dec)]
+                (if (>= max-i 0)
+                  (loop [i 0]
+                    (render-path ctx (aget paths i))
+                    (if (< i max-i)
+                      (recur (inc i))))))
               (if @run?
                 (schedule renderer)))))
 
