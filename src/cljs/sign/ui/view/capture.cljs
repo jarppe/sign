@@ -94,23 +94,32 @@
 ;; Render paths:
 ;;
 
-(defn- render-path [ctx path]
-  (when (-> path alength pos?)
-    (.beginPath ctx)
-    (let [[x y] (aget path 0)]
-      (.moveTo ctx x y))
-    (with-each path [x y]
-      (.lineTo ctx x y))
-    (.stroke ctx)))
+(def pi2 (* Math/PI 2))
 
-(defn- render [ctx paths run?]
+(defn- render-dot [ctx [x y]]
+  (doto ctx
+    (.beginPath)
+    (.arc x y 5 0 pi2 false)
+    (.fill)))
+
+(defn- render-line [ctx path]
+  (.beginPath ctx)
+  (let [[x y] (aget path 0)]
+    (.moveTo ctx x y))
+  (with-each path [x y]
+    (.lineTo ctx x y))
+  (.stroke ctx))
+
+(defn- render-path [ctx path]
+  (if (-> path alength (= 1))
+    (render-dot ctx (aget path 0))
+    (render-line ctx path)))
+
+(defn- render [clear ctx paths run?]
   (schedule (fn renderer []
-              (let [max-i (-> paths alength dec)]
-                (if (>= max-i 0)
-                  (loop [i 0]
-                    (render-path ctx (aget paths i))
-                    (if (< i max-i)
-                      (recur (inc i))))))
+              (clear ctx)
+              (with-each paths p
+                (render-path ctx p))
               (if @run?
                 (schedule renderer)))))
 
@@ -118,32 +127,35 @@
 ;; Init canvas:
 ;;
 
-(defn- init-canvas [canvas ctx <events]
-  (let [width    (.-offsetWidth canvas)
-        height   (.-offsetHeight canvas)]
-    (doto canvas
-      (aset "width" width)
-      (aset "height" height))
-    (doto ctx
-      (aset "fillStyle" "rgb(192,192,192)")
-      (.fillRect 0 0 width height)
-      (aset "strokeStyle" "rgb(255,255,255)")
-      (aset "lineWidth" 2.0)
-      (.beginPath)
-      (.moveTo 60 (- height 60))
-      (.lineTo (- width 60) (- height 60))
-      (.stroke)
-      (aset "strokeStyle" "rgb(0,0,0)")
-      (aset "fillStyle" "rgb(0,0,0)")
-      (aset "lineWidth" 5.0))
-    (doto canvas
-      (aset "onmousedown"   (on-mousedown  <events))
-      (aset "onmousemove"   (on-mousemove  <events))
-      (aset "onmouseup"     (on-mouseup    <events))
-      (aset "ontouchstart"  (on-touchstart <events))
-      (aset "ontouchmove"   (on-touchmove  <events))
-      (aset "ontouchend"    (on-touchend   <events))
-      (aset "ontouchcancel" (on-touchend   <events)))))
+(defn- make-clear [canvas]
+  (fn [ctx]
+    (let [width    (.-offsetWidth canvas)
+          height   (.-offsetHeight canvas)]
+      (doto canvas
+        (aset "width" width)
+        (aset "height" height))
+      (doto ctx
+        (aset "fillStyle" "rgb(192,192,192)")
+        (.fillRect 0 0 width height)
+        (aset "strokeStyle" "rgb(255,255,255)")
+        (aset "lineWidth" 2.0)
+        (.beginPath)
+        (.moveTo 60 (- height 60))
+        (.lineTo (- width 60) (- height 60))
+        (.stroke)
+        (aset "strokeStyle" "rgb(0,0,0)")
+        (aset "fillStyle" "rgb(0,0,0)")
+        (aset "lineWidth" 5.0)))))
+
+(defn- init-canvas [canvas <events]
+  (doto canvas
+    (aset "onmousedown"   (on-mousedown  <events))
+    (aset "onmousemove"   (on-mousemove  <events))
+    (aset "onmouseup"     (on-mouseup    <events))
+    (aset "ontouchstart"  (on-touchstart <events))
+    (aset "ontouchmove"   (on-touchmove  <events))
+    (aset "ontouchend"    (on-touchend   <events))
+    (aset "ontouchcancel" (on-touchend   <events))))
 
 ;;
 ;; :
@@ -160,9 +172,9 @@
         <close   (a/chan)
         run?     (atom true)
         ctx      (.getContext canvas "2d")]
-    (init-canvas canvas ctx <events)
+    (init-canvas canvas <events)
     (events->paths <events paths (canvas-offsets canvas))
-    (render ctx paths run?)
+    (render (make-clear canvas) ctx paths run?)
     (go
       (<! <close)
       (reset! run? false)

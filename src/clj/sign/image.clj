@@ -44,7 +44,7 @@
   (doseq [p paths]
     (if (-> p count (= 1))
       (let [[x y] (first p)]
-        (.fillOval g (sx x) (sy y) (* s 2) (* s 2)))
+        (.fillOval g (sx x) (sy y) (* s 5) (* s 5)))
       (let [path (Path2D$Float.)
             [[x y] & more] p]
         (.moveTo path ^double (sx x) ^double (sy y))
